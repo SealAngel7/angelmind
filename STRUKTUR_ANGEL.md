@@ -3175,6 +3175,64 @@ CONTAINER PRIVESC (6):
 Docker Socket → Container Escape → K8s API → Etcd Dump →
 Service Account → Pod Injection → Node Shell → ALERT
 
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Container non-privileged (no escape)│ 1. Try docker socket mount
+                                   │ 2. Use K8s API with SA token
+                                   │ 3. Fall back to etcd dump
+K8s API server unreachable         │ 1. Try etcd direct access
+                                   │ 2. Use service account token
+                                   │ 3. Alert operator
+etcd encrypted at rest             │ 1. Try K8s API with SA token
+                                   │ 2. Use kubectl with stolen creds
+                                   │ 3. Fall back to pod injection
+Service account token revoked      │ 1. Try anonymous API access
+                                   │ 2. Use stolen credentials
+                                   │ 3. Fall back to container escape
+Pod creation denied by admission   │ 1. Try existing pod exec
+                                   │ 2. Use CronJob persistence
+                                   │ 3. Fall back to node shell
+Node shell blocked (no privileged) │ 1. Try hostPID escape
+                                   │ 2. Use hostNetwork pivot
+                                   │ 3. Alert operator
+RBAC denies cluster-admin binding  │ 1. Try namespace-scoped escalation
+                                   │ 2. Use service account impersonation
+                                   │ 3. Fall back to lateral movement
+Network policy blocks pod-to-pod   │ 1. Use DNS-based exfil
+                                   │ 2. Exploit service mesh
+                                   │ 3. Pivot via compromised node
+Helm chart integrity verified      │ 1. Try ConfigMap injection
+                                   │ 2. Use CronJob persistence
+                                   │ 3. Alert operator
+Docker registry requires auth      │ 1. Try pull-through cache exploit
+                                   │ 2. Use image pull secret theft
+                                   │ 3. Fall back to direct container
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+CK-001   │ Docker socket mount escape         │ Host access gained
+CK-002   │ K8s API unauthenticated access     │ Cluster enumerated
+CK-003   │ etcd direct dump                   │ Secrets extracted
+CK-004   │ RBAC privilege escalation          │ cluster-admin bound
+CK-005   │ Pod injection + exec               │ Shell in pod
+CK-006   │ Node shell via privileged pod      │ Full node access
+CK-007   │ Container escape via SYS_ADMIN     │ Host filesystem
+CK-008   │ Service account token abuse        │ API access gained
+CK-009   │ CronJob persistence                │ Recurring execution
+CK-010   │ Network policy bypass              │ Cross-namespace access
+CK-011   │ Helm chart poisoning               │ Malicious deployment
+CK-012   │ Docker image poisoning             │ Backdoored container
+```
+
+ENVIRONMENTS: Docker 20-24, Kubernetes 1.24-1.28, AWS EKS, Azure AKS,
+              Google GKE, Rancher, OpenShift, containerd, CRI-O
+```
+
 ---
 
 ### 8.2 Cloud Deep (AWS/Azure/GCP)
@@ -3680,6 +3738,67 @@ AWS IAM → Lambda → S3 → EC2 → Azure AD → Key Vault →
 GCP IAM → Compute → Storage → GCP Logging → GCP Audit → ALERT
 ```
 
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+IAM credentials revoked mid-attack│ 1. Try alternate IAM role
+                                   │ 2. Use service account key
+                                   │ 3. Fall back to Lambda persistence
+CloudTrail logging disabled        │ 1. Verify via CloudWatch
+                                   │ 2. Check alternative log sources
+                                   │ 3. Continue with awareness
+GuardDuty active and alerting      │ 1. Use low-and-slow techniques
+                                   │ 2. Pivot to different region
+                                   │ 3. Disable GuardDuty first
+MFA enforced on IAM user           │ 1. Try federated identity bypass
+                                   │ 2. Use compromised session token
+                                   │ 3. Fall back to programmatic access
+IAM policy conditions restrict    │ 1. Try without conditions
+                                   │ 2. Use matching condition values
+                                   │ 3. Fall back to different role
+Azure AD Conditional Access blocks │ 1. Try from compliant device
+                                   │ 2. Use legacy authentication
+                                   │ 3. Fall back to service principal
+GCP Organization Policy restricts  │ 1. Try folder-level bypass
+                                   │ 2. Use project-level access
+                                   │ 3. Fall back to service account
+Cross-account trust exploited      │ 1. Assume role in trusted account
+                                   │ 2. Pivot via cross-account access
+                                   │ 3. Escalate within new account
+KMS key access denied              │ 1. Try GenerateDataKey
+                                   │ 2. Use caller's own key
+                                   │ 3. Fall back to encrypted data access
+EKS/GKE/AKS cluster locked down    │ 1. Try node-level access
+                                   │ 2. Use container escape
+                                   │ 3. Fall back to API abuse
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+CL-001   │ AWS IAM privilege escalation       │ Full admin access
+CL-002   │ Lambda persistence deployment      │ Function created
+CL-003   │ S3 bucket data exfiltration        │ Data downloaded
+CL-004   │ EC2 instance creation + SSH        │ Shell access
+CL-005   │ Azure AD app backdoor              │ App registered
+CL-006   │ Azure Key Vault secret theft       │ Secrets extracted
+CL-007   │ GCP IAM service account key        │ Key created
+CL-008   │ GCP Compute metadata SSRF          │ Token stolen
+CL-009   │ GCP Storage bucket access          │ Data accessed
+CL-010   │ GCP Logging purge                  │ Logs deleted
+CL-011   │ CloudTrail stop logging            │ Logging stopped
+CL-012   │ GuardDuty detector deletion        │ Detection disabled
+CL-013   │ Cross-account role assumption      │ Access gained
+CL-014   │ EKS/AKS/GKE cluster access         │ K8s admin
+CL-015   │ Multi-cloud pivot (AWS→Azure→GCP)  │ Full cloud compromise
+```
+
+ENVIRONMENTS: AWS (us-east-1, eu-west-1), Azure (Global, Gov),
+              GCP (us-central1, europe-west1), Hybrid AD, Multi-account
+```
+
 ---
 
 ### 8.3 Social Engineering
@@ -3947,6 +4066,62 @@ CAMPAIGN (4):
 **Fallback:**
 Email Phish → Spear Phish → Vishing → Smishing → QR Phish →
 Pretexting → Physical Access → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Email security gateway blocks     │ 1. Try spear phishing (targeted)
+attachments                        │ 2. Use link-only payload
+                                   │ 3. Fall back to vishing
+Target doesn't click phishing link│ 1. Try QR code variant
+                                   │ 2. Use credential harvesting page
+                                   │ 3. Fall back to pretexting
+Phone number blocked/blacklisted  │ 1. Use VoIP spoofed number
+                                   │ 2. Try email-based pretext
+                                   │ 3. Fall back to physical access
+QR code detected as malicious     │ 1. Use shorter URL (obfuscation)
+                                   │ 2. Host on legitimate domain
+                                   │ 3. Fall back to link phishing
+Pretext identity verification fails│ 1. Research deeper (LinkedIn)
+                                   │ 2. Use different pretext scenario
+                                   │ 3. Fall back to email phishing
+Physical access requires badge    │ 1. Clone legitimate badge
+                                   │ 2. Tailgate behind employee
+                                   │ 3. Fall back to social engineering
+Target reports suspicious activity│ 1. Abort and rotate identity
+                                   │ 2. Switch to different target
+                                   │ 3. Log partial success
+MFA blocks credential reuse       │ 1. Try MFA fatigue/push bombing
+                                   │ 2. Harvest session token instead
+                                   │ 3. Fall back to phishing page
+Anti-phishing training active     │ 1. Use highly targeted spear phish
+                                   │ 2. Exploit urgency/fear tactics
+                                   │ 3. Fall back to pretexting
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+SE-001   │ Generic email phishing             │ Credentials captured
+SE-002   │ Spear phishing (targeted)          │ Link clicked
+SE-003   │ Vishing (phone pretext)            │ Creds obtained
+SE-004   │ Smishing (SMS phishing)            │ Link followed
+SE-005   │ QR code phishing                   │ QR scanned
+SE-006   │ Helpdesk impersonation             │ Access granted
+SE-007   │ Vendor impersonation               │ Info disclosed
+SE-008   │ Executive whaling                  │ Wire transfer
+SE-009   │ Physical badge tailgating          │ Building access
+SE-010   │ GoPhish campaign integration       │ Campaign tracked
+SE-011   │ Multi-channel phishing chain       │ Full compromise
+SE-012   │ QR + credential harvest combo      │ creds captured
+```
+
+ENVIRONMENTS: Microsoft 365, Google Workspace, Exchange, GoPhish,
+              KnowBe4, Proofpoint, Mimecast, SSO/MFA platforms
+```
 
 ---
 
@@ -4190,6 +4365,59 @@ TOOLS (5):
 **Fallback:**
 Evil Twin → Deauth → Handshake → PMKID →
 Captive Portal → Bluetooth → RFID/NFC → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+WPA3-only network (no WPA2)       │ 1. Try WPA3 downgrade attack
+                                   │ 2. Use evil twin with open AP
+                                   │ 3. Fall back to蓝牙/NFC
+Wireless IDS detects deauth flood  │ 1. Slow down deauth rate
+                                   │ 2. Use targeted deauth (single client)
+                                   │ 3. Fall back to PMKID capture
+Bluetooth 5.0 enhanced security   │ 1. Try legacy pairing exploit
+                                   │ 2. Use BLE vulnerability
+                                   │ 3. Fall back to WiFi attack
+RFID/NFC encrypted (MIFARE DESFire)│ 1. Try reader vuln exploit
+                                   │ 2. Use relay attack
+                                   │ 3. Fall back to credential harvest
+Protected management frames (PMF)  │ 1. Try CLIENTSPECIFIC deauth
+                                   │ 2. Use evil twin without deauth
+                                   │ 3. Fall back to passive capture
+Hidden SSID not broadcasting       │ 1. Use probe request sniffing
+                                   │ 2. Deauth known client to trigger probe
+                                   │ 3. Fall back to Bluetooth scan
+Enterprise WPA (802.1X)            │ 1. Try RADIUS credential theft
+                                   │ 2. Use evil twin with rogue RADIUS
+                                   │ 3. Fall back to credential harvest
+Captive portal with DNS check      │ 1. Bypass via MAC spoofing
+                                   │ 2. Use different network segment
+                                   │ 3. Fall back to Bluetooth attack
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+WU-001   │ Evil twin AP creation              │ Rogue AP active
+WU-002   │ Deauth + handshake capture         │ Handshake captured
+WU-003   │ PMKID capture (no client)          │ PMKID hash captured
+WU-004   │ WPA3 downgrade attack              │ WPA2 handshake
+WU-005   │ Captive portal credential harvest  │ Creds captured
+WU-006   │ Bluetooth device scan + exploit    │ Device enumerated
+WU-007   │ RFID badge clone (Proxmark3)       │ Badge cloned
+WU-008   │ NFC relay attack                   │ Access relayed
+WU-009   │ WiFi Pineapple rogue AP            │ Clients connected
+WU-010   │ Karma AP (respond any SSID)        │ Client connected
+WU-011   │ Bluetooth SDR capture              │ Traffic decoded
+WU-012   │ Multi-protocol (WiFi+BT+NFC)       │ Full wireless audit
+```
+
+ENVIRONMENTS: WPA2-Personal, WPA2-Enterprise, WPA3, Open, Captive Portal,
+              Bluetooth 4.0/4.2/5.0, RFID (125kHz/13.56MHz), NFC
+```
 
 ---
 
@@ -4440,6 +4668,60 @@ BUILD_SYSTEM (6):
 **Fallback Chain:**
 Dependency Poison → CI/CD Compromise → Package Manager →
 Build System (Makefile/CMake/Gradle/MSBuild/Dockerfile/Pre-commit) → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+npm audit detects malicious pkg   │ 1. Rename package (typosquat)
+                                   │ 2. Use different registry
+                                   │ 3. Fall back to CI/CD compromise
+Code review catches CI change     │ 1. Use subtle obfuscated payload
+                                   │ 2. Target less-monitored pipeline
+                                   │ 3. Fall back to dependency poison
+Package signature validation      │ 1. Compromise signing key
+                                   │ 2. Use unsigned package registry
+                                   │ 3. Fall back to build system inject
+Repository has branch protection  │ 1. Fork + PR social engineering
+                                   │ 2. Compromise maintainer account
+                                   │ 3. Fall back to dependency poison
+Docker image scanning (Trivy)     │ 1. Use minimal base image
+                                   │ 2. Inject at build time
+                                   │ 3. Fall back to registry poison
+Build verification (reproducible) │ 1. Compromise build server
+                                   │ 2. Modify build dependencies
+                                   │ 3. Fall back to CI/CD injection
+Package manager lockfile present   │ 1. Target transitive dependency
+                                   │ 2. Exploit lockfile update process
+                                   │ 3. Fall back to build system
+Pre-commit hooks audited           │ 1. Target post-commit hooks
+                                   │ 2. Compromise hook repository
+                                   │ 3. Fall back to CI/CD pipeline
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+SC-001   │ npm typosquatting package          │ Backdoor installed
+SC-002   │ PyPI malicious package             │ Code executed
+SC-003   │ Go module impersonation            │ Module downloaded
+SC-004   │ Ruby gem backdoor                  │ Gem installed
+SC-005   │ GitHub Actions workflow inject     │ Workflow executed
+SC-006   │ GitLab CI pipeline poison          │ Pipeline ran
+SC-007   │ Jenkinsfile malicious pipeline     │ Build compromised
+SC-008   │ Malicious Dockerfile               │ Image built
+SC-009   │ Pre-commit hook exfil              │ Data exfiltrated
+SC-010   │ Makefile command injection         │ Command executed
+SC-011   │ Gradle task injection              │ Task executed
+SC-012   │ NuGet package poison               │ Package restored
+```
+
+ENVIRONMENTS: npm, PyPI, Go modules, RubyGems, Maven, NuGet,
+              GitHub Actions, GitLab CI, Jenkins, CircleCI,
+              Docker Hub, Homebrew, Chocolatey, APT/YUM repos
+```
 
 ---
 
@@ -4651,6 +4933,65 @@ INJECTION (5):
 **Fallback:**
 OAuth Redirect → Scope Escalation → JWT Attack → API Key →
 Rate Limit Bypass → IDOR → Injection → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+OAuth redirect_uri exact-match    │ 1. Use subdomain of allowed URI
+                                   │ 2. Find open redirect on allowed domain
+                                   │ 3. Fall back to JWT attack
+JWT algorithm RS256 enforced      │ 1. Try HMAC key confusion
+                                   │ 2. Brute force weak secret
+                                   │ 3. Fall back to token theft
+API key rotation detected         │ 1. Use stolen key before rotation
+                                   │ 2. Extract key from source code
+                                   │ 3. Fall back to OAuth abuse
+Rate limit triggers on brute force│ 1. Rotate IP address
+                                   │ 2. Slow down request rate
+                                   │ 3. Fall back to credential stuffing
+GraphQL introspection disabled    │ 1. Try error-based schema leak
+                                   │ 2. Use suggestion-based enumeration
+                                   │ 3. Fall back to REST endpoint discovery
+IDOR requires specific ID format  │ 1. Enumerate ID patterns
+                                   │ 2. Use UUID prediction
+                                   │ 3. Fall back to function leak
+CORS blocks cross-origin requests │ 1. Find subdomain with permissive CORS
+                                   │ 2. Use redirect-based bypass
+                                   │ 3. Fall back to server-side injection
+XML parser disables external entity│ 1. Try parameter entity variant
+                                   │ 2. Use SSRF via DTD
+                                   │ 3. Fall back to JSON injection
+Session token bound to IP         │ 1. Use same IP (proxy/VPN)
+                                   │ 2. Forge token with IP claim
+                                   │ 3. Fall back to session fixation
+API versioning blocks old endpoints│ 1. Try deprecated version
+                                   │ 2. Use different API path
+                                   │ 3. Fall back to GraphQL
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+AP-001   │ OAuth redirect_uri manipulation    │ Auth code stolen
+AP-002   │ JWT alg:none bypass                │ Token forged
+AP-003   │ JWT weak secret crack              │ Secret found
+AP-004   │ API key extraction from source     │ Key reused
+AP-005   │ Rate limit bypass (race condition) │ Limit bypassed
+AP-006   │ IDOR data access                   │ Other user data
+AP-007   │ GraphQL introspection leak         │ Schema exposed
+AP-008   │ NoSQL injection via API            │ Auth bypassed
+AP-009   │ JSON parameter pollution           │ Unexpected behavior
+AP-010   │ OAuth scope escalation             │ Elevated privileges
+AP-011   │ JWT kid injection                  │ File read
+AP-012   │ API key in URL log exposure        │ Key leaked
+```
+
+ENVIRONMENTS: REST API, GraphQL, gRPC, OAuth 2.0, OIDC,
+              JWT (RS256/HS256), API Gateway (Kong/AWS/APIM)
+```
 
 ---
 
@@ -4928,6 +5269,62 @@ UNIVERSAL (6):
 **Fallback:**
 Jailbreak/Root Bypass → SSL Pinning → Keychain/SharedPrefs →
 Backup Extract → WebView Exploit → Frida Hook → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+App detects jailbreak/root        │ 1. Use Frida to bypass detection
+                                   │ 2. Use Magisk Hide (Android)
+                                   │ 3. Fall back to backup extract
+SSL pinning with certificate      │ 1. Use Frida to hook SSL
+transparency                       │ 2. Use mitmproxy with custom CA
+                                   │ 3. Fall back to backup extract
+Keychain/KeyStore encrypted       │ 1. Use device passcode brute-force
+                                   │ 2. Extract from memory dump
+                                   │ 3. Fall back to WebView exploit
+Backup encrypted with password    │ 1. Try common passwords
+                                   │ 2. Extract from device directly
+                                   │ 3. Fall back to Frida hook
+WebView has no JavaScript bridge  │ 1. Find URL scheme handler
+                                   │ 2. Use deep link injection
+                                   │ 3. Fall back to clipboard monitoring
+Frida detection (anti-tampering)   │ 1. Use Frida Gadget injection
+                                   │ 2. Use Xposed framework
+                                   │ 3. Fall back to static analysis
+App runs in secure enclave        │ 1. Extract from IPC communication
+                                   │ 2. Hook before enclave call
+                                   │ 3. Fall back to network intercept
+Obfuscated code (ProGuard/R8)     │ 1. Use deobfuscation tools
+                                   │ 2. Dynamic analysis with Frida
+                                   │ 3. Fall back to memory analysis
+App uses certificate transparency  │ 1. Use legitimate CA-issued cert
+                                   │ 2. Hook CT verification
+                                   │ 3. Fall back to backup extract
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+MO-001   │ iOS keychain credential dump       │ Passwords extracted
+MO-002   │ Android SharedPreferences extract  │ Data extracted
+MO-003   │ iOS jailbreak detection bypass     │ Detection bypassed
+MO-004   │ Android root detection bypass      │ Detection bypassed
+MO-005   │ SSL pinning bypass (Frida)         │ Traffic intercepted
+MO-006   │ iOS backup extraction (iTunes)     │ Backup decrypted
+MO-007   │ Android ADB backup extract         │ Data extracted
+MO-008   │ WebView JS bridge exploit          │ Native call executed
+MO-009   │ iOS URL scheme hijacking           │ Data intercepted
+MO-010   │ Android Intent hijacking           │ Data intercepted
+MO-011   │ Mobile API intercept (mitmproxy)   │ Traffic decrypted
+MO-012   │ App cloning + code injection       │ Malicious app created
+```
+
+ENVIRONMENTS: iOS 14-17, Android 10-14, rooted/jailbroken devices,
+              Frida, Objection, Jadx, Ghidra, mitmproxy, Burp Suite
+```
 
 ---
 
@@ -5164,6 +5561,62 @@ TOOLS (5):
 **Fallback:**
 USB Drop → Badge Clone → Tailgating → Lock Picking →
 Network Tap → WiFi Rogue AP → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+USB port disabled (group policy)  │ 1. Try HID attack via Bluetooth
+                                   │ 2. Use network-based attack
+                                   │ 3. Fall back to badge clone
+Badge uses encrypted RFID (DESFire)│ 1. Try relay attack
+                                   │ 2. Use brute-force on reader
+                                   │ 3. Fall back to tailgating
+Biometric access control          │ 1. Try spoofed fingerprint
+                                   │ 2. Use FaceID mask bypass
+                                   │ 3. Fall back to tailgating
+Mantrap with dual doors           │ 1. Tailgate during entry
+                                   │ 2. Use social engineering
+                                   │ 3. Fall back to network tap
+CCTV monitored in real-time       │ 1. Use blind spots
+                                   │ 2. Disable cameras via network
+                                   │ 3. Fall back to badge clone
+Lock has anti-pick protection     │ 1. Try bump key
+                                   │ 2. Use bypass tool
+                                   │ 3. Fall back to WiFi rogue AP
+USB device has endpoint protection│ 1. Use USBKill to power off
+                                   │ 2. Try different USB device
+                                   │ 3. Fall back to badge clone
+Network port has 802.1X           │ 1. Try credential capture
+                                   │ 2. Use Rogue AP bypass
+                                   │ 3. Fall back to physical tap
+Badge reader has tamper detection │ 1. Use relay attack (long range)
+                                   │ 2. Clone from captured signal
+                                   │ 3. Fall back to tailgating
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+PH-001   │ USB drop payload execution         │ Payload executed
+PH-002   │ Badge clone (Proxmark3)            │ Badge cloned
+PH-003   │ RFID badge emulation               │ Access granted
+PH-004   │ Tailgating into secured area       │ Building accessed
+PH-005   │ Lock picking (pin tumbler)         │ Lock opened
+PH-006   │ Bump key attack                    │ Lock opened
+PH-007   │ Physical network tap               │ Traffic captured
+PH-008   │ Rogue WiFi AP deployment           │ Clients connected
+PH-009   │ USB HID attack (Rubber Ducky)      │ Keystrokes injected
+PH-010   │ Desk spy (sticky note recon)       │ Creds found
+PH-011   │ Bluetooth SDR capture              │ Traffic decoded
+PH-012   │ Multi-vector physical audit        │ Full physical report
+```
+
+ENVIRONMENTS: Office buildings, data centers, server rooms, warehouses,
+              RFID (125kHz/13.56MHz), Bluetooth, WiFi, USB, Physical locks
+```
 
 ---
 
@@ -5430,6 +5883,59 @@ REPORTING (4):
 **Fallback:**
 Alert Validation → Detection Rules → Log Coverage →
 SIEM Correlation → EDR Test → NDR Test → Report
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+SOC doesn't trigger alert         │ 1. Document detection gap
+                                   │ 2. Recommend rule update
+                                   │ 3. Escalate to management
+False positive overwhelms SOC     │ 1. Tune detection rules
+                                   │ 2. Add context to alerts
+                                   │ 3. Recommend filtering
+EDR blocks attack but no alert    │ 1. Check EDR alert config
+                                   │ 2. Verify log forwarding
+                                   │ 3. Document passive block
+SIEM rule triggers on wrong event │ 1. Refine correlation logic
+                                   │ 2. Add additional conditions
+                                   │ 3. Update rule implementation
+Log forwarding delayed/missing    │ 1. Check log pipeline
+                                   │ 2. Verify agent installation
+                                   │ 3. Document coverage gap
+Attack technique not in MITRE     │ 1. Map to closest technique
+                                   │ 2. Document custom technique
+                                   │ 3. Update mapping matrix
+NDR/IDS signature outdated        │ 1. Update signatures
+                                   │ 2. Test with newer variants
+                                   │ 3. Document detection gap
+Multiple tools conflict           │ 1. Identify tool interaction
+                                   │ 2. Recommend configuration change
+                                   │ 3. Document interference
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+PT-001   │ SOC alert validation               │ Alert triggered
+PT-002   │ Detection rule (Sigma) test         │ Rule matched
+PT-003   │ Log coverage verification           │ Logs present
+PT-004   │ SIEM correlation test               │ Correlation fired
+PT-005   │ EDR endpoint detection              │ Detection logged
+PT-006   │ NDR network detection               │ Traffic flagged
+PT-007   │ Email gateway phishing test         │ Phishing blocked
+PT-008   │ Cloud security posture test         │ Misconfig found
+PT-009   │ MITRE ATT&CK coverage matrix       │ Coverage mapped
+PT-010   │ Response time measurement           │ Time documented
+PT-011   │ Triage accuracy validation          │ Accuracy scored
+PT-012   │ Purple team engagement report       │ Report generated
+```
+
+ENVIRONMENTS: Splunk, Elastic SIEM, Microsoft Sentinel, QRadar,
+              CrowdStrike, SentinelOne, Carbon Black, Snort/Suricata
+```
 
 ---
 
@@ -5638,6 +6144,57 @@ INTELLIGENCE_REPORT (4):
 **Fallback:**
 IOC Generation → MITRE Mapping → Threat Feed →
 Intelligence Report → Distribution → Update Rules
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Threat feed has stale IOCs        │ 1. Validate IOC freshness
+                                   │ 2. Cross-reference multiple feeds
+                                   │ 3. Prioritize recent indicators
+MITRE technique doesn't map       │ 1. Use closest technique
+                                   │ 2. Document custom procedure
+                                   │ 3. Update internal taxonomy
+Commercial feed API rate limited  │ 1. Implement caching
+                                   │ 2. Use backup feed source
+                                   │ 3. Fall back to OSINT feeds
+IOC false positive rate high      │ 1. Add context scoring
+                                   │ 2. Validate against multiple sources
+                                   │ 3. Refine detection rules
+Dark web feed inaccessible        │ 1. Use alternative monitoring
+                                   │ 2. Leverage leaked data sources
+                                   │ 3. Fall back to public feeds
+Threat actor attribution unclear  │ 1. Use TTP-based mapping
+                                   │ 2. Correlate multiple campaigns
+                                   │ 3. Document uncertainty level
+Intelligence report outdated      │ 1. Refresh threat profile
+                                   │ 2. Update capability assessment
+                                   │ 3. Reassess risk posture
+SIEM integration fails            │ 1. Manual IOC import
+                                   │ 2. Use STIX/TAXII feed
+                                   │ 3. Document integration gap
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+TI-001   │ IOC generation (file/network)      │ IOCs created
+TI-002   │ MITRE technique mapping            │ Techniques mapped
+TI-003   │ OSINT threat feed integration      │ Feed ingested
+TI-004   │ Commercial feed integration        │ Feed ingested
+TI-005   │ Threat actor profile creation      │ Profile created
+TI-006   │ Campaign mapping                   │ Campaigns mapped
+TI-007   │ Intelligence report generation     │ Report created
+TI-008   │ IOC distribution to SIEM           │ IOCs imported
+TI-009   │ Dark web monitoring                │ Threats identified
+TI-010   │ Risk assessment update             │ Risk scored
+```
+
+ENVIRONMENTS: MISP, OpenCTI, STIX/TAXII, Splunk ES, QRadar,
+              VirusTotal, Shodan, Recorded Future, Mandiant
+```
 
 ---
 
@@ -5882,6 +6439,54 @@ IR_TOOLS (5):
 **Fallback:**
 Breach Sim → Ransomware Sim → Insider Sim → APT Sim →
 Log Tamper → Evidence Destruction → IR Report
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Breach simulation causes panic    │ 1. Reveal scenario to leadership
+                                   │ 2. End simulation early
+                                   │ 3. Document false alarm response
+Ransomware sim triggers real IR   │ 1. Reveal to SOC immediately
+                                   │ 2. Provide deconfliction
+                                   │ 3. End simulation safely
+Insider sim detected by user      │ 1. Reveal to user
+                                   │ 2. Document detection capability
+                                   │ 3. Refine simulation approach
+APT sim blocks by EDR             │ 1. Use legitimate tools only
+                                   │ 2. Document detection capability
+                                   │ 3. Focus on defense bypass techniques
+Log tampering detected by SIEM    │ 1. Document SIEM integrity check
+                                   │ 2. Recommend additional controls
+                                   │ 3. Document detection gap
+Evidence destruction detected     │ 1. Document chain of custody
+                                   │ 2. Test backup integrity
+                                   │ 3. Recommend additional controls
+IR simulation causes downtime     │ 1. Stop simulation immediately
+                                   │ 2. Restore from backup
+                                   │ 3. Document impact assessment
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+IR-001   │ Data breach simulation             │ Response triggered
+IR-002   │ Ransomware simulation              │ Containment activated
+IR-003   │ Insider threat simulation          │ Detection triggered
+IR-004   │ APT simulation                     │ IR team activated
+IR-005   │ Log tampering detection            │ Tampering detected
+IR-006   │ Evidence destruction detection     │ Destruction detected
+IR-007   │ Timeline forensics                 │ Timeline created
+IR-008   │ Incident documentation             │ Report generated
+IR-009   │ Communication plan execution       │ Stakeholders notified
+IR-010   │ Recovery validation                │ Systems restored
+```
+
+ENVIRONMENTS: SIEM (Splunk, Elastic, Sentinel), EDR (CrowdStrike, SentinelOne),
+              Forensic tools (FTK, EnCase, Volatility), Backup systems
+```
 
 ---
 
@@ -6110,6 +6715,57 @@ DATA (4):
 **Fallback:**
 MFA Bypass → SSO Abuse → Conditional Bypass → ZTNA Bypass →
 Micro-seg Bypass → DLP Bypass → Tunnel Exfil → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+MFA requires hardware token       │ 1. Try MFA fatigue/push bombing
+                                   │ 2. Use session token replay
+                                   │ 3. Fall back to SSO abuse
+SSO session is bound to device    │ 1. Use compromised device
+                                   │ 2. Forge device claim
+                                   │ 3. Fall back to conditional bypass
+Conditional Access requires合规device│ 1. Use managed device
+                                   │ 2. Bypass compliance check
+                                   │ 3. Fall back to ZTNA bypass
+ZTNA agent detects tampering      │ 1. Use legitimate device
+                                   │ 2. Bypass agent check
+                                   │ 3. Fall back to micro-seg bypass
+Micro-segmentation blocks lateral │ 1. Find overly permissive rule
+movement                           │ 2. Use service account
+                                   │ 3. Fall back to DLP bypass
+DLP blocks data exfiltration      │ 1. Use approved channel
+                                   │ 2. Encrypt/encode data
+                                   │ 3. Fall back to tunnel exfil
+Tunnel detected by NDR            │ 1. Use encrypted tunnel
+                                   │ 2. Use legitimate VPN
+                                   │ 3. Fall back to different exfil method
+Zero trust policy blocks all      │ 1. Find policy exception
+                                   │ 2. Use service account
+                                   │ 3. Document policy gap
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+ZT-001   │ MFA bypass (push bombing)          │ MFA bypassed
+ZT-002   │ SSO session hijacking              │ Session stolen
+ZT-003   │ Conditional access bypass          │ Access gained
+ZT-004   │ ZTNA agent bypass                  │ Agent bypassed
+ZT-005   │ Micro-segmentation bypass          │ Lateral movement
+ZT-006   │ DLP bypass (data encoding)         │ Data exfiltrated
+ZT-007   │ Network tunnel exfiltration        │ Data tunneled
+ZT-008   │ Device compliance bypass           │ Access gained
+ZT-009   │ Identity provider abuse            │ Identity compromised
+ZT-010   │ Zero trust policy validation       │ Policies tested
+```
+
+ENVIRONMENTS: Okta, Azure AD, Duo, Zscaler, Palo Alto Prisma,
+              Cloudflare Access, CrowdStrike, Fortinet, Cisco ISE
+```
 
 ---
 
@@ -6346,6 +7002,56 @@ NFT_EXPLOIT (3):
 FALLBACK:
 Reentrancy → Flash Loan → Oracle Manip → Front Run →
 Access Control → Proxy Upgrade → Bridge Exploit → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Flash loan requires minimum value │ 1. Use multiple flash loans
+                                   │ 2. Find lower-value protocol
+                                   │ 3. Fall back to reentrancy
+Reentrancy guard (nonReentrant)   │ 1. Try cross-function reentrancy
+                                   │ 2. Use ERC-777 callback
+                                   │ 3. Fall back to flash loan
+Oracle has TWAP protection         │ 1. Manipulate over longer period
+                                   │ 2. Use multiple oracle sources
+                                   │ 3. Fall back to access control
+Front-running bot detected        │ 1. Use commit-reveal scheme
+                                   │ 2. Use private mempool (Flashbots)
+                                   │ 3. Fall back to oracle manip
+Access control uses timelock      │ 1. Wait for timelock expiry
+                                   │ 2. Exploit timelock bypass
+                                   │ 3. Fall back to proxy upgrade
+Proxy upgrade requires multisig   │ 1. Compromise enough signers
+                                   │ 2. Use governance attack
+                                   │ 3. Fall back to bridge exploit
+Bridge has withdrawal limits      │ 1. Exploit in multiple transactions
+                                   │ 2. Find bypass for limits
+                                   │ 3. Fall back to reentrancy
+MEV bot detects exploit attempt   │ 1. Use private transaction
+                                   │ 2. Avoid public mempool
+                                   │ 3. Fall back to different exploit
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+W3-001   │ Flash loan price manipulation      │ Price manipulated
+W3-002   │ Reentrancy exploit (ETH/ERC20)     │ Funds drained
+W3-003   │ Oracle price manipulation          │ Price altered
+W3-004   │ Front-running/sandwich attack      │ Profit extracted
+W3-005   │ Access control bypass              │ Admin function called
+W3-006   │ Proxy upgrade hijack               │ Contract replaced
+W3-007   │ Cross-chain bridge exploit         │ Funds drained
+W3-008   │ Governance token manipulation      │ Proposal passed
+W3-009   │ Rug pull simulation                │ Liquidity removed
+W3-010   │ Smart contract audit (Slither)     │ Vulnerabilities found
+```
+
+ENVIRONMENTS: Ethereum, BSC, Polygon, Arbitrum, Optimism,
+              Uniswap, Aave, Compound, OpenZeppelin, Hardhat, Foundry
 ```
 
 ---
@@ -6585,6 +7291,57 @@ EVASION_ANALYSIS (5):
 **Fallback:**
 Static Analysis → YARA Scan → Dynamic Analysis → API Monitor →
 Network Capture → Memory Forensic → Unpack → Report
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Malware detects VM/sandbox        │ 1. Use bare-metal analysis
+                                   │ 2. Modify VM artifacts
+                                   │ 3. Fall back to static analysis
+Packed/obfuscated sample          │ 1. Use automated unpacking
+                                   │ 2. Manual unpacking
+                                   │ 3. Fall back to dynamic analysis
+Anti-analysis checks (anti-debug) │ 1. Patch debugger checks
+                                   │ 2. Use anti-anti-analysis tools
+                                   │ 3. Fall back to memory analysis
+Network traffic encrypted         │ 1. Analyze at endpoint
+                                   │ 2. Use SSL interception
+                                   │ 3. Fall back to API monitoring
+Fileless malware (memory only)    │ 1. Memory dump analysis
+                                   │ 2. Volatility analysis
+                                   │ 3. Fall back to behavioral analysis
+Malware deletes itself            │ 1. Use write blocker
+                                   │ 2. Recover from shadow copy
+                                   │ 3. Fall back to static analysis
+Code injection into legitimate    │ 1. Analyze injected code
+process                             │ 2. Dump process memory
+                                   │ 3. Fall back to behavioral analysis
+Evasion via timing                │ 1. Extend analysis time
+                                   │ 2. Use forced execution
+                                   │ 3. Fall back to static analysis
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+MA-001   │ Static analysis (Ghidra/IDA)       │ Functions identified
+MA-002   │ Dynamic analysis (Cuckoo)          │ Behavior captured
+MA-003   │ YARA rule match                    │ Malware family ID'd
+MA-004   │ API monitoring (API Monitor)        │ APIs logged
+MA-005   │ Network traffic capture            │ C2 traffic captured
+MA-006   │ Memory forensics (Volatility)      │ Artifacts found
+MA-007   │ Unpacking (UPX/Themida)            │ Original code restored
+MA-008   │ Anti-analysis bypass               │ Analysis continued
+MA-009   │ YARA rule creation                 │ Rule created
+MA-010   │ Malware report generation          │ Report created
+```
+
+ENVIRONMENTS: Ghidra, IDA Pro, x64dbg, OllyDbg, Cuckoo Sandbox,
+              CAPE, Volatility, ProcMon, Wireshark, YARA, Detect-It-Easy
+```
 
 ---
 
@@ -6812,6 +7569,56 @@ AI_SAFETY_BYPASS (5):
 FALLBACK:
 Model Steal → Adversarial Example → Prompt Injection →
 Data Poison → Jailbreak → API Abuse → Safety Bypass → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Prompt injection filtered by      │ 1. Use encoding/obfuscation
+input validation                   │ 2. Use indirect prompt injection
+                                   │ 3. Fall back to API abuse
+Model has rate limiting            │ 1. Rotate API keys
+                                   │ 2. Use distributed requests
+                                   │ 3. Fall back to data poisoning
+Adversarial example detected       │ 1. Use stronger perturbation
+                                   │ 2. Target different model layer
+                                   │ 3. Fall back to prompt injection
+Jailbreak filtered by safety layer │ 1. Use DAN-style prompts
+                                   │ 2. Use language mixing
+                                   │ 3. Fall back to indirect injection
+Training data has robustness       │ 1. Use stronger perturbations
+checks                              │ 2. Target different features
+                                   │ 3. Fall back to API abuse
+Model outputs sanitized            │ 1. Use encoding techniques
+                                   │ 2. Indirect extraction
+                                   │ 3. Fall back to model stealing
+Federated learning detected        │ 1. Compromise edge nodes
+                                   │ 2. Poison gradient updates
+                                   │ 3. Fall back to data poisoning
+AI safety alignment checks         │ 1. Use subtle adversarial prompts
+                                   │ 2. Target alignment weaknesses
+                                   │ 3. Fall back to API abuse
+```
+
+**Test Scenarios:**
+```
+TEST_ID  │ SCENARIO                           │ EXPECTED
+─────────┼────────────────────────────────────┼──────────────────
+AI-001   │ Prompt injection (direct)          │ System prompt leaked
+AI-002   │ Prompt injection (indirect)        │ Hidden instruction followed
+AI-003   │ Model extraction (query-based)     │ Model replicated
+AI-004   │ Adversarial example (image)        │ Misclassification
+AI-005   │ Adversarial text (NLP)             │ Misclassification
+AI-006   │ Training data poisoning            │ Model behavior altered
+AI-007   │ Model inversion attack             │ Training data extracted
+AI-008   │ Membership inference               │ Data membership confirmed
+AI-009   │ Jailbreak (DAN, roleplay)          │ Safety bypassed
+AI-010   │ API quota abuse                    │ Rate limit exceeded
+```
+
+ENVIRONMENTS: OpenAI API, Hugging Face, TensorFlow, PyTorch,
+              LLM (GPT, Claude, LLaMA), Vision models, NLP pipelines
 ```
 
 ---
